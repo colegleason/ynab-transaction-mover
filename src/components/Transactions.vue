@@ -1,41 +1,136 @@
 <template>
   <div class="container">
-    <h5>Transactions</h5>
-    <table class="table">
-    <thead>
-      <tr>
-        <th>Account</th>
-        <th>Date</th>
-        <th>Payee</th>
-        <th>Category</th>
-        <th>Memo</th>
-        <th>Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="transaction in transactions" v-bind:key="transaction.id">
-        <td>{{transaction.account_name}}</td>
-        <td>{{transaction.date}}</td>
-        <td>{{transaction.payee_name}}</td>
-        <td>{{transaction.category_name}}</td>
-        <td>{{transaction.memo}}</td>
-        <td>{{convertMilliUnitsToCurrencyAmount(transaction.amount).toFixed(2)}}</td>
-      </tr>
-    </tbody>
-    </table>
+    <!-- vue-good-table component below -->
+    <vue-good-table class="row"
+      @on-selected-rows-change="selectionChanged"
+      :columns="columns"
+      :rows="transactions"
+      :select-options="{
+        enabled: true,
+        selectionText: 'transactions selected',
+        clearSelectionText: 'clear',
+      }"
+      :pagination-options="{
+        enabled: true,
+        mode: 'records',
+        perPage: 10,
+        position: 'bottom',
+        perPageDropdown: [10, 50, 100, 500],
+        dropdownAllowAll: true,
+        nextLabel: 'next',
+        prevLabel: 'prev',
+        rowsPerPageLabel: 'Transactions per page',
+        ofLabel: 'of',
+        pageLabel: 'page', // for 'pages' mode
+        allLabel: 'All',
+      }"
+      :sort-options="{
+        enabled: true,
+        initialSortBy: {field: 'date', type: 'desc'}
+      }"
+      >
+        <div slot="selected-row-actions">
+          <button class="btn btn-success" :disabled="selectedTransactions.length == 0" @click="stageSelected">Stage Selected Transactions</button>
+        </div>
+      <template slot="table-row" slot-scope="props">
+          <span v-if="props.column.field == 'amount'">
+            {{currencyFormatter(props.row.amount)}}
+          </span>
+          <span v-else-if="props.column.field == 'account'" v-bind:id="'transaction-row-' + props.row.id">
+              {{props.formattedRow[props.column.field]}}
+          </span>
+          <span v-else>
+              {{props.formattedRow[props.column.field]}}
+          </span>
+      </template>
+    </vue-good-table>
   </div>
 </template>
 
 <script>
-// Import utils from YNAB
-import {utils} from 'ynab';
+
+import { VueGoodTable } from 'vue-good-table';
 
 export default {
-  props: ['transactions'],
+  data() {
+    return {
+      selectedTransactions: [],
+      stagedTransactions: [],
+      columns: [
+        {
+          label: 'Account',
+          field: 'account_name',
+          filterOptions: {
+            enabled: true, // enable filter for this column
+            placeholder: 'All Accounts', // placeholder for filter input
+            filterDropdownItems: this.accounts.map(a => a.name)
+          },
+        },
+        {
+          label: 'Date',
+          field: 'date',
+          width: '115px',
+          filterOptions: {
+            enabled: true,
+          }
+        },
+        {
+          label: 'Payee',
+          field: 'payee_name',
+          filterOptions: {
+            enabled: true, // enable filter for this column
+          }
+        },
+        {
+          label: 'Category',
+          field: (t) => {
+            if (t.category_name instanceof Array) {
+              return t.category_name.join(", ");
+            } else {
+              return t.category_name;
+            }
+          },
+          filterOptions: {
+            enabled: true, // enable filter for this column
+            placeholder: 'All Categories', // placeholder for filter input
+            filterDropdownItems: this.categories.map(c => c.name) // dropdown (with selected values) instead of text input
+          }
+        },
+        {
+          label: 'Memo',
+          field: 'memo',
+          filterOptions: {
+            enabled: true, // enable filter for this column
+          }
+        },
+        {
+          label: 'Amount',
+          field: 'amount',
+          width: '100px',
+          tdClass: "text-right"
+        }
+      ]
+    }
+  },
+  watch: {
+    categories: function () {
+      this.columns[3].filterOptions.filterDropdownItems = this.categories.map(c => c.name)
+    },
+    accounts: function() {
+      this.columns[0].filterOptions.filterDropdownItems = this.accounts.map(a => a.name)
+    },
+  },
+  props: ['transactions', "categories", "accounts", "currencyFormatter"],
+  components: {VueGoodTable},
   methods: {
-    // Now we can make this method available to our template
-    // So we can format this milliunits in the correct currency format
-    convertMilliUnitsToCurrencyAmount: utils.convertMilliUnitsToCurrencyAmount
+    selectionChanged(params) {
+      this.selectedTransactions = params.selectedRows;
+    },
+    stageSelected() {
+      this.stagedTransactions.push(...this.selectedTransactions)
+      this.selectedTransactions = [];
+      this.$emit('stagedTransactions', this.stagedTransactions)
+    },
   }
 }
 </script>
