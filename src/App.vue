@@ -312,7 +312,7 @@ export default {
       this.completedOperation = null;
       this.selectedCategory = null;
       this.stagedTransactions = [];
-      selectBudget(this.budgetId)
+      this.selectBudget(this.budgetId)
     },
     updateStagedTransactions(stagedTransactions) {
       this.stagedTransactions = stagedTransactions;
